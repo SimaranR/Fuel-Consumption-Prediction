@@ -1,49 +1,113 @@
 import numpy as np
+import pandas as pd
 import pickle as pk
 import streamlit as st
-from sklearn.preprocessing import MinMaxScaler
-
-sc = MinMaxScaler()
-
+import base64
+from streamlit.components.v1 import html
 loaded_model = pk.load(
-    open("trained_model.sav", "rb"))
-
-
-def hpp(input_data):
-    # input_data = (4.98, 2.31, 0.538, 15.3, 6.575, 296, 4.09, 65)
-    arr = np.asarray(input_data)
+    open("trained_model_rf.sav","rb"))
+scaled_data = pk.load(
+    open("scaled_data.sav","rb"))
+@st.experimental_memo
+def get_img_as_base64(file):
+    with open(file, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+img = get_img_as_base64("image.jpg")
+page_bg_img = f"""
+<style>
+[data-testid="stAppViewContainer"] > .main {{
+background-image: url("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSf_E3V1THqjF1EBlz_pdjLLtqVaoZsjZBWzA&usqp=CAU");
+background-size: 180%;
+background-position: top left;
+background-repeat: no-repeat;
+background-attachment: local;
+}}
+[data-testid="stSidebar"] > div:first-child {{
+background-image: url("data:image/png;base64,{img}");
+background-position: center;
+background-repeat: no-repeat;
+background-attachment: fixed;
+}}
+[data-testid="stHeader"] {{
+background: rgba(0,0,0,0);
+}}
+[data-testid="stToolbar"] {{
+right: 2rem;
+}}
+</style>
+"""
+st.markdown(page_bg_img, unsafe_allow_html=True)
+def input_converter(inp):
+    vcl = ['Two-seater', 'Minicompact', 'Compact', 'Subcompact', 'Mid-size', 'Full-size', 'SUV: Small', 'SUV: Standard',
+           'Minivan', 'Station wagon: Small', 'Station wagon: Mid-size', 'Pickup truck: Small',
+           'Special purpose vehicle', 'Pickup truck: Standard']
+    trans = ['AV', 'AM', 'M', 'AS', 'A']
+    fuel = ["D", "E", "X", "Z"]
+    lst = []
+    for i in range(6):
+        if (type(inp[i]) == str):
+            if (inp[i] in vcl):
+                lst.append(vcl.index(inp[i]))
+            elif (inp[i] in trans):
+                lst.append(trans.index(inp[i]))
+            elif (inp[i] in fuel):
+                if (fuel.index(inp[i]) == 0):
+                    lst.extend([1, 0, 0, 0])
+                    break
+                elif (fuel.index(inp[i]) == 1):
+                    lst.extend([0, 1, 0, 0])
+                    break
+                elif (fuel.index(inp[i]) == 2):
+                    lst.extend([0, 0, 1, 0])
+                    break
+                elif (fuel.index(inp[i]) == 3):
+                    lst.extend([0, 0, 0, 1])
+        else:
+            lst.append(inp[i])
+    arr = np.asarray(lst)
     arr = arr.reshape(1, -1)
-    ar = sc.fit_transform(arr)
-
-    prediction = loaded_model.predict(ar)
-    return(f"The Median value of owner-occupied homes in $1000's is {round(prediction[0],2)}")
-
-
-
+    arr = scaled_data.transform(arr)
+    prediction = loaded_model.predict(arr)
+    return (f"The Fuel Consumption L/100km is {round(prediction[0], 2)}")
 def main():
     # giving a title
-    st.title("Housing Price Prediction System")
-
+    _left, mid, _right = st.columns(3)
+    with mid:
+       st.image("output-onlinegiftools.gif")
+    st.markdown("<h1 style='text-align: center; color: red;'>Fuel Consumption Prediction</h1>", unsafe_allow_html=True)
     # getting the input data from user
     result = 0
-
-    lstat = st.text_input("% of lower class population around")
-    indus = st.text_input("proportion of non-retail business acres per town")
-    nox = st.text_input("nitric oxides concentration (parts per 10 million)")
-    ptratio = st.text_input("pupil-teacher ratio by town")
-    rm = st.text_input("average number of rooms per dwelling")
-    tax = st.text_input("full-value property-tax rate per $10,000")
-    dis = st.text_input("weighted distances to five city employment centres")
-    age = st.text_input("proportion of owner-occupied units built prior to 1940")
-
+    vehicle = ['Two-seater','Minicompact','Compact','Subcompact','Mid-size','Full-size','SUV: Small','SUV: Standard','Minivan','Station wagon: Small','Station wagon: Mid-size','Pickup truck: Small','Special purpose vehicle','Pickup truck: Standard']
+    transmission = ['AV', 'AM', 'M', 'AS', 'A']
+    fuel = ["D", "E", "X", "Z"]
+    Vehicle_class = st.selectbox(label = "Enter Vehicle class",options = vehicle)
+    css = '''
+        <style>
+            .stSelectbox [data-testid='stMarkdownContainer'] {
+                color: white;
+            }
+        </style>
+    '''
+    st.write(css, unsafe_allow_html=True)
+    Engine_size = st.number_input("Enter Engine Size (please enter value in this range[1-7])")
+    css = """
+        <style>
+           .stNumberInput [data-testid='stnumber'] {
+                color: white;
+                position: absolute;
+            }
+        </style>
+    """
+    st.write(css, unsafe_allow_html=True)
+    Cylinders = st.number_input("Enter number of Cylinders (please enter value in this range[1-16]",min_value = 1, max_value = 16)
+    Transmission = st.selectbox("Select the Transmission",transmission)
+    Co2_Rating = st.number_input("Enter CO2 Rating (please enter value in this range[1-10]",min_value = 1, max_value = 10)
+    Fuel_type = st.selectbox("Select the Fuel type",fuel)
     # code for prediction
-
     # creating a button for prediction
-    if st.button("Predict MEDV"):
-        result = hpp([lstat, indus, nox, ptratio, rm, tax, dis, age])
-
+    if st.button("Predict :mag:"):
+        result = input_converter([Vehicle_class,Engine_size,Cylinders,Transmission,Co2_Rating,Fuel_type])
     st.success(result)
-
-
 if __name__ == "__main__":
     main()
